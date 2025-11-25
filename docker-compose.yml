@@ -1,0 +1,121 @@
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    ports:
+      - "8880:8880"
+    networks:
+      - agent_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+    command: --dev --bind "0.0.0.0"
+    networks:
+      - agent_network
+
+  whisper:
+    build:
+      context: ./whisper
+    volumes:
+      - whisper-data:/data
+    ports:
+      - "11435:80"
+    networks:
+      - agent_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ollama:
+    build:
+      context: ./ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - agent_network
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 6G
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  agent:
+    build:
+      context: ./agent
+    environment:
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_WS_URL=ws://livekit:7880
+      - LIVEKIT_HOST=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - LIVEKIT_AGENT_NAME=local-agent
+      - LIVEKIT_AGENT_PORT=7880
+      - OPENAI_API_KEY=no-key-needed
+      - GROQ_API_KEY=no-key-needed
+      - WHISPER_STT_URL=${WHISPER_STT_URL:-http://whisper:80/v1}
+    depends_on:
+      livekit:
+        condition: service_started
+      kokoro:
+        condition: service_started
+      whisper:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - agent_network
+
+  frontend:
+    build:
+      context: ./voice-assistant-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - NEXT_PUBLIC_LIVEKIT_URL=ws://localhost:7880
+      - NEXT_PUBLIC_LIVEKIT_API_KEY=devkey
+      - NEXT_PUBLIC_AGENT_NAME=local-agent
+    depends_on:
+      - livekit
+    networks:
+      - agent_network
+
+volumes:
+  ollama:
+  whisper-data:
+
+networks:
+  agent_network:
+    driver: bridge

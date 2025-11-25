@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+echo "Starting Ollama server..."
+ollama serve &
+OLLAMA_PID=$!
+
+echo "Waiting for Ollama server to be ready..."
+# Wait for ollama to be ready by checking the API
+for i in $(seq 1 30); do
+    if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+
+if ! curl -s http://localhost:11434/api/tags | grep -q "gemma3:12b"; then
+    echo "Downloading gemma3:12b model..."
+    ollama pull gemma3:12b
+fi
+
+echo "Warming up gemma3:12b and keeping it resident..."
+curl -s -X POST http://localhost:11434/api/generate \
+    -H "Content-Type: application/json" \
+    -d '{"model":"gemma3:12b","prompt":"Warm up.","stream":false,"keep_alive":-1}' >/dev/null || true
+
+echo "Setup complete, keeping container running..."
+wait $OLLAMA_PID
