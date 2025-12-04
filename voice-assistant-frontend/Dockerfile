@@ -15,6 +15,14 @@ RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
+
+# Build-time environment variables for Next.js
+ARG NEXT_PUBLIC_LIVEKIT_URL=ws://localhost:7880
+ARG NEXT_PUBLIC_AGENT_NAME=local-agent
+
+ENV NEXT_PUBLIC_LIVEKIT_URL=$NEXT_PUBLIC_LIVEKIT_URL
+ENV NEXT_PUBLIC_AGENT_NAME=$NEXT_PUBLIC_AGENT_NAME
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm run build

@@ -98,6 +98,9 @@ services:
   frontend:
     build:
       context: ./voice-assistant-frontend
+      args:
+        - NEXT_PUBLIC_LIVEKIT_URL=ws://localhost:7880
+        - NEXT_PUBLIC_AGENT_NAME=local-agent
     ports:
       - "3000:3000"
     environment:
