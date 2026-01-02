@@ -14,15 +14,15 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-if ! curl -s http://localhost:11434/api/tags | grep -q "gemma3:12b"; then
-    echo "Downloading gemma3:12b model..."
-    ollama pull gemma3:12b
+if ! curl -s http://localhost:11434/api/tags | grep -q "gemma3:4b"; then
+    echo "Downloading gemma3:4b model..."
+    ollama pull gemma3:4b
 fi
 
-echo "Warming up gemma3:12b and keeping it resident..."
+echo "Warming up gemma3:4b and keeping it resident..."
 curl -s -X POST http://localhost:11434/api/generate \
     -H "Content-Type: application/json" \
-    -d '{"model":"gemma3:12b","prompt":"Warm up.","stream":false,"keep_alive":-1}' >/dev/null || true
+    -d '{"model":"gemma3:4b","prompt":"Warm up.","stream":false,"keep_alive":-1}' >/dev/null || true
 
 echo "Setup complete, keeping container running..."
 wait $OLLAMA_PID

@@ -11,12 +11,21 @@
 This repo contains everything needed to run a real-time AI voice assistant locally using:
 
 - 🎙️ **LiveKit Agents** for STT ↔ LLM ↔ TTS
-- 🧠 **Ollama** for running local LLMs (e.g., `gemma3:12b`)
-- 🗣️ **Kokoro** for TTS voice synthesis (Sarah voice)
-- 👂 **Whisper (via VoxBox)** for speech-to-text (large-v3)
+- 🧠 **Ollama** for running local LLMs (e.g., `gemma3:4b`)
+- 🗣️ **Chatterbox** for TTS voice synthesis (Multilingual - 23 languages including Hindi)
+- 👂 **Whisper (via VoxBox)** for speech-to-text with auto language detection
+- 🌐 **Bilingual Support** - Automatically detects and responds in Hindi/English/Hinglish
 - 🔍 **RAG** powered by Sentence Transformers and FAISS
 - 💬 **Agent Starter React** UI for LiveKit voice sessions
 - 🐳 Fully containerized via Docker Compose
+
+## ✨ Features
+
+- **Multilingual Support**: Speaks both Hindi 🇮🇳 and English 🇬🇧 naturally
+- **Auto Language Detection**: STT automatically detects spoken language
+- **Hinglish Mode**: Seamlessly mixes Hindi and English based on user preference
+- **Optimized for Low VRAM**: Uses `gemma3:4b` for efficient GPU memory usage
+- **High-Quality TTS**: Chatterbox multilingual TTS with 23 language support
 
 ## 🏁 Quick Start
 
@@ -37,21 +46,23 @@ Each service is containerized and communicates over a shared Docker network:
 - `livekit`: WebRTC signaling server
 - `agent`: Custom Python agent with LiveKit SDK and local models
 - `frontend`: Next.js (agent-starter-react) UI that joins LiveKit rooms and requests tokens
-- `whisper`: Speech-to-text using `vox-box` and Whisper large-v3
-- `ollama`: Local LLM provider (e.g., `gemma3:12b`)
-- `kokoro`: TTS engine (Sarah voice)
+- `whisper`: Speech-to-text using `vox-box` and Whisper large-v3 (auto language detection)
+- `ollama`: Local LLM provider (`gemma3:4b`)
+- `chatterbox`: Multilingual TTS engine (23 languages including Hindi)
 
 ## 🧠 Agent Instructions
 
 Your agent lives in [`agent/myagent.py`](./agent/myagent.py). It uses:
-- `openai.STT` → routes to Whisper
-- `openai.LLM` → routes to Ollama
-- `groq.TTS` → routes to Kokoro
+- `openai.STT` → routes to Whisper with auto language detection
+- `openai.LLM` → routes to Ollama (`gemma3:4b`)
+- `openai.TTS` → routes to Chatterbox (multilingual)
 - `silero.VAD` → for voice activity detection
 - `SentenceTransformer` → embeds documents and queries for RAG
 - `FAISS` → performs similarity search for knowledge retrieval
 
 The agent supports Retrieval-Augmented Generation (RAG) by loading documents from the `agent/docs` directory. These documents are embedded using the all-MiniLM-L6-v2 model and indexed using FAISS for fast similarity search. During conversations, relevant document snippets are automatically retrieved to enhance the agent's responses.
+
+The agent persona "Gyanika" is a bilingual learning assistant that naturally switches between Hindi and English based on student communication style.
 
 All metrics from each component are logged for debugging.
 
@@ -79,9 +90,10 @@ The services will restart and build fresh containers.
 
 ```
 .
-├── agent/                     # Python voice agent
-├── ollama/                    # LLM serving
-├── whisper/                   # Whisper via vox-box
+├── agent/                     # Python voice agent (bilingual)
+├── ollama/                    # LLM serving (gemma3:4b)
+├── whisper/                   # Whisper via vox-box (auto-detect language)
+├── chatterbox/                # Multilingual TTS (23 languages)
 ├── livekit/                   # Signaling server
 ├── voice-assistant-frontend/  # LiveKit agent-starter-react (Next.js UI)
 └── docker-compose.yml         # Brings it all together
@@ -90,8 +102,8 @@ The services will restart and build fresh containers.
 ## 🛠️ Requirements
 
 - Docker + Docker Compose v2.24+
-- NVIDIA driver + NVIDIA Container Toolkit (GPU scheduling for Whisper, Kokoro, Ollama)
-- At least one CUDA-capable GPU with 12GB+ VRAM (Whisper large-v3 + Gemma3 12B)
+- NVIDIA driver + NVIDIA Container Toolkit (GPU scheduling for Whisper, Chatterbox, Ollama)
+- At least one CUDA-capable GPU with 8GB+ VRAM (optimized for lower memory usage)
 - Recommended system RAM: 16GB+
 
 ## ⚙️ Environment Configuration
@@ -112,14 +124,15 @@ If you prefer to route speech-to-text requests through a different hostname or p
 
 ## 🆘 Troubleshooting
 
-- **Frontend can't reach LiveKit**: make sure `docker compose up -d livekit agent frontend whisper ollama kokoro` is running, then tail `docker compose logs -f frontend livekit` to confirm the Next.js API route can mint tokens.
+- **Frontend can't reach LiveKit**: make sure `docker compose up -d livekit agent frontend whisper ollama chatterbox` is running, then tail `docker compose logs -f frontend livekit` to confirm the Next.js API route can mint tokens.
 - **Agent never connects to the call**: verify `LIVEKIT_AGENT_NAME` (agent worker) equals `NEXT_PUBLIC_AGENT_NAME` / `AGENT_NAME` (frontend). If they differ or are blank, LiveKit will start the room without scheduling a worker.
 - **Agent keeps leaving rooms**: inspect `docker compose logs agent` for stack traces (model downloads, missing GPUs, missing cloud credentials). The job will end if a worker exits, and LiveKit will log `JS_FAILED`.
-- **Whisper retries downloading weights**: the large-v3 model is ~3.3 GB; keep the `whisper-data` volume mounted so it only downloads once, and ensure the container has GPU access (check with `docker compose exec whisper nvidia-smi`).
+- **Whisper retries downloading weights**: the large-v3 model is ~3.3 GB; keep the `whisper-data` volume mounted so it only downloads once, and ensure the container has GPU access (check with `docker compose exec whisper nvidia-smi`).
+- **Hindi TTS not working**: ensure `chatterbox/config.yaml` has `repo_id: chatterbox` (not `chatterbox-turbo`) for multilingual support.
 
 ## 🙌 Credits
 
-- Built with ❤️ by [LiveKit](https://livekit.io/)
+- Built with ❤️ by [PRO X PC](https://github.com/ranjanjyoti152)
 - Uses [LiveKit Agents](https://docs.livekit.io/agents/)
 - Local LLMs via [Ollama](https://ollama.com/)
-- TTS via [Kokoro](https://github.com/remsky/kokoro)
+- TTS via [Chatterbox](https://github.com/resemble-ai/chatterbox)

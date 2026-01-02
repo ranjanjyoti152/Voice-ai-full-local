@@ -1,16 +1,31 @@
 services:
-  kokoro:
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+  chatterbox:
+    build:
+      context: ./chatterbox
+      dockerfile: Dockerfile
+      args:
+        - RUNTIME=nvidia
     ports:
-      - "8880:8880"
+      - "8004:8004"
+    volumes:
+      - ./chatterbox/config.yaml:/app/config.yaml
+      - ./chatterbox/voices:/app/voices
+      - ./chatterbox/reference_audio:/app/reference_audio
+      - ./chatterbox/outputs:/app/outputs
+      - chatterbox-hf-cache:/app/hf_cache
     networks:
       - agent_network
+    restart: unless-stopped
+    environment:
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              count: 1
               capabilities: [gpu]
 
   livekit:
@@ -83,10 +98,11 @@ services:
       - OPENAI_API_KEY=no-key-needed
       - GROQ_API_KEY=no-key-needed
       - WHISPER_STT_URL=${WHISPER_STT_URL:-http://whisper:80/v1}
+      - TTS_URL=http://chatterbox:8004/v1
     depends_on:
       livekit:
         condition: service_started
-      kokoro:
+      chatterbox:
         condition: service_started
       whisper:
         condition: service_healthy
@@ -118,6 +134,7 @@ services:
 volumes:
   ollama:
   whisper-data:
+  chatterbox-hf-cache:
 
 networks:
   agent_network:

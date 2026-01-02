@@ -25,6 +25,7 @@ LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
 LIVEKIT_AGENT_NAME = os.getenv("LIVEKIT_AGENT_NAME", "local-agent")
 WHISPER_STT_URL = os.getenv("WHISPER_STT_URL", "http://whisper:80/v1")
+TTS_URL = os.getenv("TTS_URL", "http://chatterbox:8004/v1")
 
 logger = logging.getLogger("local-agent")
 logger.setLevel(logging.INFO)
@@ -95,11 +96,12 @@ class LocalAgent(Agent):
         stt = ResilientOpenAISTT(
             base_url=WHISPER_STT_URL,
             model="Systran/faster-whisper-large-v3",
+            language="auto",  # Auto-detect language (Hindi/English/etc.)
             max_retries=6,
             retry_delay=2.0,
         )
-        llm = openai.LLM(base_url="http://ollama:11434/v1", model="gemma3:12b", timeout=30)
-        tts = groq.TTS(base_url="http://kokoro:8880/v1", model="kokoro", voice="af_sarah")
+        llm = openai.LLM(base_url="http://ollama:11434/v1", model="gemma3:4b", timeout=120)
+        tts = openai.TTS(base_url=TTS_URL, voice="Emily.wav")
         vad_inst = silero.VAD.load()
         super().__init__(
             instructions=AGENT_INSTRUCTION,
